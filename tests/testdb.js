@@ -9,15 +9,15 @@ async function testDbConnection(){
             password: process.env.DB_PASSWORD,
             database: process.env.DB_DATABASE,
             port: process.env.DB_PORT,
+            connectTimeout: 5000
         });
         console.log('dakchi mzyan');
-        await connection.end();
-        process.exit(0);
+        return connection;
     }
     catch(err){
         console.error('database connection failed:', err);
-        process.exit(1);
+        throw err;
     }
 }
 
-testDbConnection();
+module.exports = testDbConnection;
