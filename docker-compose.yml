@@ -32,6 +32,9 @@ services:
       DB_ROOT_PASSWORD: root123
     depends_on:
       - mysql
+    volumes:
+    - ./:/app
+    working_dir: /app
     networks:
       - mysql_net
 
