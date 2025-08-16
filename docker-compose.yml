@@ -13,7 +13,8 @@ services:
     ports:
       - "3309:3306"                          # expose MySQL to host
     volumes:
-      - mysql_data:/var/lib/mysql            # store data in a volume
+      - mysql_data:/var/lib/mysql    
+      - ./dump_file.sql:/docker-entrypoint-init.db.d/dump.sql        # store data in a volume
     networks:
       - mysql_net                            # ✅ plural here
 
