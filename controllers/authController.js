@@ -139,13 +139,43 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+     const [roles] = await pool.query(
+      `SELECT r.name 
+       FROM roles r
+       JOIN user_roles ur ON ur.role_id = r.id
+       WHERE ur.user_id = ?`,
+      [user.id]
+    );
+  
+    const [permissions] = await pool.query(
+      `SELECT p.name 
+       FROM permissions p
+       JOIN role_permissions rp ON rp.permission_id = p.id
+       JOIN user_roles ur ON ur.role_id = rp.role_id
+       WHERE ur.user_id = ?`,
+      [user.id]
+    );
+
     // 4. Generate JWT token
-    const token = generateToken({ id: user.id, email: user.email });
+    const token = generateToken({ 
+      id: user.id, 
+      email: user.email, 
+      roles: roles.map(r => r.name),
+      permissions: permissions.map(p => p.name)
+    });
 
     // 5. Return token and optionally user data
-    res.status(200).json({ token, user: { id: user.id, email: user.email } });
+    rres.status(200).json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        email: user.email, 
+        roles: roles.map(r => r.name),
+        permissions: permissions.map(p => p.name)
+      }
+    });
   } catch (err) {
-    console.error(err);
+    console.error('[Login Error]', err);
     res.status(500).json({ message: 'Login failed' });
   }
 };
