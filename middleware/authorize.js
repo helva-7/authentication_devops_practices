@@ -1,20 +1,22 @@
 const jwt = require('jsonwebtoken');
 
-module.exports = (requiredPermission) => {
+// middlewares/authorize.js
+module.exports = (requiredPermissionOrRole) => {
   return (req, res, next) => {
     try {
       const authHeader = req.headers['authorization'];
       if (!authHeader) return res.status(401).json({ message: 'No token provided' });
 
       const token = authHeader.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
 
-      if (!decoded.permissions.includes(requiredPermission)) {
-        return res.status(403).json({ message: 'Forbidden: insufficient permissions' });
+      // Check roles
+      if (decoded.roles && decoded.roles.includes(requiredPermissionOrRole)) {
+        req.user = decoded;
+        return next();
       }
 
-      req.user = decoded; // Attach user to request
-      next();
+      return res.status(403).json({ message: 'Forbidden: insufficient permissions' });
     } catch (err) {
       console.error('[Auth Middleware Error]', err);
       res.status(401).json({ message: 'Unauthorized' });

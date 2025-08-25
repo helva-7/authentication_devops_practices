@@ -6,35 +6,38 @@ const pool = require('../config/db');
 const sendMail = require('../utils/mailer');
 
 exports.signup = async (req, res) => {
-  const { email, password, firstName, secondName, phoneNumber} = req.body;
+  const { email, password, firstName, secondName, phoneNumber } = req.body;
   try {
     const [existing] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
     if (existing.length) return res.status(400).json({ message: 'Email already exists' });
 
     const hashed = await bcrypt.hash(password, 10);
-    const token = generateToken({ email });
-    const verificationToken = generateToken({ email });
 
+    // one verification token (the SAME one we store and email)
+    const verificationToken = generateToken({ email }); // e.g. 1d expiry inside your util
 
+    // single INSERT, let is_active default to 0
     await pool.query(
-      'INSERT INTO users (email, password,first_name, second_name, phone_number ,verification_token) VALUES (?, ?, ?, ?, ?, ?)',
-      [email, hashed,firstName, secondName, phoneNumber,token]
+      `INSERT INTO users
+        (email, password, first_name, second_name, phone_number, verification_token, is_verified, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0)`,
+      [email, hashed, firstName, secondName, phoneNumber, verificationToken]
     );
+
     const clientURL = process.env.CLIENT_URL || `http://localhost:${process.env.PORT}`;
     const verificationURL = `${clientURL}/api/auth/verify/${verificationToken}`;
 
-    
-await sendMail(
+    await sendMail(
       email,
       'Verify your email',
-      `Click to verify: ${verificationURL}`, // plain text fallback
+      `Click to verify: ${verificationURL}`,
       `<p>Click the link below to verify your email:</p>
-       <a href="${verificationURL}" target="_blank">${verificationURL}</a>` // clickable HTML link
+       <p><a href="${verificationURL}" target="_blank" rel="noopener">Verify my email</a></p>`
     );
 
-    res.status(201).json({ message: 'Signup successful, verify your email.' });
+    res.status(201).json({ message: 'Signup successful. Please verify your email.' });
   } catch (err) {
-    console.error(err);
+    console.error('[Signup Error]', err);
     res.status(500).json({ message: 'Signup failed' });
   }
 };
@@ -132,7 +135,9 @@ exports.login = async (req, res) => {
     if (!user.is_verified) {
       return res.status(403).json({ message: 'Please verify your email first' });
     }
-
+    if (!user.is_active) {
+    return res.status(403).json({ message: 'Account not activated by admin yet' });
+}
     // 3. Compare passwords
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
@@ -165,7 +170,7 @@ exports.login = async (req, res) => {
     });
 
     // 5. Return token and optionally user data
-    rres.status(200).json({ 
+    res.status(200).json({ 
       token, 
       user: { 
         id: user.id, 
@@ -178,4 +183,5 @@ exports.login = async (req, res) => {
     console.error('[Login Error]', err);
     res.status(500).json({ message: 'Login failed' });
   }
+  
 };
